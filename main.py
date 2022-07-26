@@ -58,19 +58,12 @@ def ADAS():
     
     motor_drive.run(0)
         
-    # ev3.screen.clear()
     back_right_sens_dist = ult_sen.distance()
     for i in range(0,1000):
         back_right_sens_dist = back_right_sens_dist + ult_sen.distance()
     back_right_sens_dist = back_right_sens_dist/1000
     
-    # ev3.screen.print(back_right_sens_dist)
-    # while True:
-    #     pass
-    # print("ADASS here")
-    # step 1:
     motor_ultraSens.run_target(1053,-90) #look behind
-    # back_right_sens_dist = ult_sen.distance()
     
     right_angel = 230
     stop_angel = -60
@@ -89,19 +82,46 @@ def ADAS():
         stop_angel = -65
     
     motor_steer.run_target(500, right_angel) # turn steer wheel to the right
-    angle = 20
+    
     while True:
         motor_drive.dc(70) #chay lui
         if gyro_Sen.angle() < stop_angel :
             ev3.screen.clear()
             ev3.screen.print(gyro_Sen.angle());
             break
+        
+        # kiem tra vat can khi dang di chuyen
+        ostacle_check_dist = ult_sen.distance()
+        if ostacle_check_dist < 230:
+            motor_drive.run(0)
+            ev3.screen.print(ostacle_check_dist)
+            while(not Button.DOWN in ev3.buttons.pressed()):
+                pass
 
     # step 2: danh lai vao ps
     motor_steer.run_target(500,-230) #danh lai trai het co
     
-    while gyro_Sen.angle() < 0 : 
+    # while gyro_Sen.angle() < 0 : 
+    #     motor_drive.dc(68) #chay lui
+        
+    #     ostacle_check_dist = ult_sen.distance()
+    #     if ostacle_check_dist < 200:
+    #         motor_drive.run(0)
+    #         while(not Button.CENTER in ev3.buttons.pressed()):
+    #             pass
+    
+    while True:
         motor_drive.dc(68) #chay lui
+        if gyro_Sen.angle() > 0 : 
+            break
+        
+        # kiem tra vat can khi dang di chuyen
+        ostacle_check_dist = ult_sen.distance()
+        if ostacle_check_dist < 230:
+            motor_drive.run(0)
+            ev3.screen.print(ostacle_check_dist)
+            while(not Button.DOWN in ev3.buttons.pressed()):
+                pass
 
     motor_drive.dc(0)
     motor_steer.run_target(500, 0) #danh lai thang
@@ -172,6 +192,7 @@ def ADAS():
     #         gyro_Sen.reset_angle(0)
     #     pass
 
+
 while(not Button.CENTER in ev3.buttons.pressed()):
     motor_drive.run(0)
     pass
@@ -193,6 +214,10 @@ delta_time_ms = timer.time() - curr_time
 
 parking_size = -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(delta_time_ms/1000) #mm
 
+total_len_time = 0
+total_len = 0
+total_len_time = timer.time()
+
 while True:
 
 # finding PS ------------------------------------------------------- 
@@ -208,7 +233,6 @@ while True:
     raw_dist = int(raw_dist/dist_filter_size)
     right_distance = raw_dist
 
-    ev3.screen.print(right_distance)
     # doc toc do dong co
     vel_mot_counter = vel_mot_counter + 1
     vel_mot_average = vel_mot_average + motor_drive.speed()
@@ -217,7 +241,18 @@ while True:
     # motor_ultraSens.run_target(1053,0)
 
     # run car
-    motor_drive.run(-MOT_DEG_S)
+    total_len_time_diff = timer.time() - total_len_time 
+    if (total_len_time_diff >= 1):
+        total_len = total_len + -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(total_len_time_diff/1000)
+        total_len_time = timer.time()
+    
+    ev3.screen.print(total_len)
+    if (total_len > 2500):
+        motor_drive.run(0)
+        while True:
+            pass
+    else:
+        motor_drive.run(-MOT_DEG_S)
 
     # straight_distance = ult_sen.distance()
 
@@ -240,6 +275,7 @@ while True:
     else:
         isObtacle = False
 
+    # kiem tra valid PS
     if isObtacle_old != isObtacle:
         if(isObtacle == False and isObtacle_old == True):
             curr_time = timer.time()
@@ -252,8 +288,9 @@ while True:
         else:
             pass
         isObtacle_old = isObtacle
-
+        
     if (parking_size >= PS_SIZE + PS_SIZE_OFFSET):
+        # valid PS, drive Car to PS
         # motor_drive.run(0)
         ev3.speaker.beep(frequency=200, duration=100)
         ev3.screen.print(parking_size)
