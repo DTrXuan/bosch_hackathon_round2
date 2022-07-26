@@ -50,15 +50,19 @@ is1StDetection = True
 
 isObtacle = False
 isObtacle_old = False
-
+ev3.light.off()
 # auto parking
 def ADAS():
     
+    wait(70)
+    
+    motor_drive.run(0)
+        
     # ev3.screen.clear()
     back_right_sens_dist = ult_sen.distance()
-    for i in range(0,100):
+    for i in range(0,1000):
         back_right_sens_dist = back_right_sens_dist + ult_sen.distance()
-    back_right_sens_dist = back_right_sens_dist/100
+    back_right_sens_dist = back_right_sens_dist/1000
     
     # ev3.screen.print(back_right_sens_dist)
     # while True:
@@ -72,17 +76,17 @@ def ADAS():
     stop_angel = -60
     
     if (back_right_sens_dist <= 170):
-        ev3.speaker.say("one")
+        ev3.light.on(Color.RED)
         right_angel = 230
         stop_angel = -35
     elif (back_right_sens_dist <= 270):
-        ev3.speaker.say("two")
+        ev3.light.on(Color.YELLOW)
         right_angel = 190
         stop_angel = -53
     else:
-        ev3.speaker.say("three")
+        ev3.light.on(Color.GREEN)
         right_angel = 180
-        stop_angel = -60
+        stop_angel = -65
     
     motor_steer.run_target(500, right_angel) # turn steer wheel to the right
     angle = 20
@@ -255,8 +259,6 @@ while True:
         ev3.screen.print(parking_size)
         ev3.screen.print(delta_time_ms)
         ev3.screen.print(vel_mot_average)
-        wait(20)
-        motor_drive.run(0)
         while(True):
             ADAS()
             
