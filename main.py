@@ -40,56 +40,107 @@ MOT2CAR_DEG_S_RATIO = CAR_DEG_S/MOT_DEG_S
 
 PS_SIZE = 600
 PS_SIZE_OFFSET = 50
-REF_CAR_DIST = 350
+REF_CAR_DIST = 500
+REF_CAR_WIDTH = 200
 
 vel_mot_average = 0
 vel_mot_counter = 0
+
+is1StDetection = True
 
 isObtacle = False
 isObtacle_old = False
 
 # auto parking
-def ADAS():
+def ADAS(back_right_sens_dist):
     print("ADASS here")
     # step 1:
     motor_ultraSens.run_target(1053,-90) #look behind
-    motor_steer.run_target(500, 180) # turn steer wheel to the right
-    back_right_sens_dist = ult_sen.distance()
+    # back_right_sens_dist = ult_sen.distance()
     
+    right_angel = 230
+    stop_angel = -60
+    
+    if (back_right_sens_dist <= 240):
+        ev3.speaker.say("one")
+        right_angel = 230
+        stop_angel = -35
+    elif (back_right_sens_dist <= 360):
+        ev3.speaker.say("two")
+        right_angel = 190
+        stop_angel = -53
+    elif (back_right_sens_dist >2500):
+        ev3.speaker.say("three")
+        right_angel = 230
+        stop_angel = -30
+    else:
+        ev3.speaker.say("four")
+        right_angel = 180
+        stop_angel = -60
+    
+    motor_steer.run_target(500, right_angel) # turn steer wheel to the right
     angle = 20
     while True:
         motor_drive.dc(70) #chay lui
-        if gyro_Sen.angle() < -60 :
+        if gyro_Sen.angle() < stop_angel :
             ev3.screen.clear()
             ev3.screen.print(gyro_Sen.angle());
             break
-        
-        # if ult_sen.distance() > 1000:
-        #     break
 
-    # # step 2:
-    # motor_steer.run_target(500,0) #danh lai thang
-    # back_right_sens_dist = ult_sen.distance()
-    
-    # while back_right_sens_dist > 100:
-    #     back_right_sens_dist = ult_sen.distance()
-    #     motor_drive.dc(50) #chay lui
-    
-    # motor_drive.dc(0)
-    
-    # step 3: danh lai vao ps
+    # step 2: danh lai vao ps
     motor_steer.run_target(500,-230) #danh lai trai het co
     
     while gyro_Sen.angle() < 0 : 
-        motor_drive.dc(50) #chay lui
+        motor_drive.dc(68) #chay lui
 
     motor_drive.dc(0)
     motor_steer.run_target(500, 0) #danh lai thang
     
-    # step 4: hieu chinh khoang cach
+    # step 3: hieu chinh khoang cach
+    
+    # wait(50)
+    # behind_dist = ult_sen.distance()
+    
+    # # behind_dist = 0
+    # # for i in range(0,10):
+    # #     behind_dist = behind_dist + ult_sen.distance()
+    # # behind_dist = behind_dist/10
+    
+    # motor_ultraSens.run_target(1053,90)
+    # wait(50)
+    
+    # front_dist = ult_sen.distance()
+    
+    # # front_dist = 0
+    # # for i in range(0,10):
+    # #     behind_dist = behind_dist + ult_sen.distance()
+    # # behind_dist = behind_dist/10
+    
+    # center_dist = (front_dist + behind_dist)/2
+    # delta_dist = front_dist - behind_dist
+    
+    # if (delta_dist >= 0):
+    #     while True:
+    #         motor_drive.dc(-30) #chay toi
+    #         temp_dist = ult_sen.distance()
+    #         if(temp_dist <= center_dist):
+    #             motor_drive.dc(0)
+    #             break
+    # else:
+    #     motor_ultraSens.run_target(1053,-90)
+    #     wait(10)
+    #     while True:
+    #         motor_drive.dc(30) #chay lui
+    #         temp_dist = ult_sen.distance()
+    #         if(temp_dist <= center_dist):
+    #             motor_drive.dc(0)
+    #             break
+            
+            
     motor_ultraSens.run_target(1053,0)
     while(not Button.CENTER in ev3.buttons.pressed()):
         pass
+    
     
     # motor_ultraSens.run_target(500,-90)
     # front_dist = UltrasonicSensor.distance()
@@ -147,6 +198,7 @@ while True:
     raw_dist = int(raw_dist/dist_filter_size)
     right_distance = raw_dist
 
+    ev3.screen.print(right_distance)
     # doc toc do dong co
     vel_mot_counter = vel_mot_counter + 1
     vel_mot_average = vel_mot_average + motor_drive.speed()
@@ -170,6 +222,9 @@ while True:
     
     # xu ly vat can
     if(right_distance < REF_CAR_DIST):
+        if is1StDetection == True:
+            REF_CAR_DIST = right_distance + REF_CAR_WIDTH 
+            is1StDetection = False
         isObtacle = True
         ev3.speaker.beep(frequency=200, duration=100)
     else:
@@ -196,7 +251,7 @@ while True:
         ev3.screen.print(vel_mot_average)
         motor_drive.run(0)
         while(True):
-            ADAS()
+            ADAS(right_distance)
             
     else:
         pass
