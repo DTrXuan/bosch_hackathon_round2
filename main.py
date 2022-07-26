@@ -54,7 +54,7 @@ ev3.light.off()
 # auto parking
 def ADAS():
     
-    wait(70)
+    wait(80)
     
     motor_drive.run(0)
         
@@ -199,7 +199,7 @@ while(not Button.CENTER in ev3.buttons.pressed()):
 
 gyro_Sen.reset_angle(0)
 
-dist_filter_size = 5
+dist_filter_size = 3
 raw_dist = 0
 dist_filter = [0]*dist_filter_size
 peek = 0
@@ -208,7 +208,7 @@ for i in dist_filter:
     i = ult_sen.distance()
     raw_dist = raw_dist + i
 raw_dist = raw_dist/dist_filter_size
-
+right_distance = raw_dist
 curr_time = timer.time()
 delta_time_ms = timer.time() - curr_time
 
@@ -218,41 +218,60 @@ total_len_time = 0
 total_len = 0
 total_len_time = timer.time()
 
+sensor_angel = 95
 while True:
 
 # finding PS ------------------------------------------------------- 
     motor_steer.hold()
     
-    # doc khoang cach
-    peek = peek + 1
-    peek = peek % dist_filter_size
-    dist_filter[peek] = ult_sen.distance()
-    # xu ly tin hieu cam bien
-    for i in dist_filter:
-        raw_dist += i 
-    raw_dist = int(raw_dist/dist_filter_size)
-    right_distance = raw_dist
+    # doc khoang cach truoc
+    sensor_angel = 95
+    motor_ultraSens.run_target(1053,sensor_angel)
+    straight_distance = ult_sen.distance()
+    
+    if straight_distance < 250:
+        timer.pause()
+        while(not Button.DOWN in ev3.buttons.pressed()):
+            timer.pause()
+            motor_drive.run(0)
+            pass
+        timer.resume()
+    
+    sensor_angel = 0
+    # doc khoang cach ben phai
+    motor_ultraSens.run_target(1053,sensor_angel)
+    
+    if sensor_angel == 0:
+        # temp = ult_sen.distance()
+        # if temp < 2500 and temp > 10:
+        #     peek = peek + 1
+        #     peek = peek % dist_filter_size
+            
+        #     dist_filter[peek] = temp
+        #     # xu ly tin hieu cam bien
+        #     for i in dist_filter:
+        #         raw_dist += i 
+        #     raw_dist = int(raw_dist/dist_filter_size)
+        #     right_distance = raw_dist
+        right_distance = ult_sen.distance()
 
     # doc toc do dong co
     vel_mot_counter = vel_mot_counter + 1
     vel_mot_average = vel_mot_average + motor_drive.speed()
 
-    # SENSOR turn straight
-    # motor_ultraSens.run_target(1053,0)
-
     # run car
-    total_len_time_diff = timer.time() - total_len_time 
-    if (total_len_time_diff >= 1):
-        total_len = total_len + -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(total_len_time_diff/1000)
-        total_len_time = timer.time()
+    # total_len_time_diff = timer.time() - total_len_time 
+    # if (total_len_time_diff >= 1):
+    #     total_len = total_len + -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(total_len_time_diff/1000)
+    #     total_len_time = timer.time()
     
-    ev3.screen.print(total_len)
-    if (total_len > 2500):
-        motor_drive.run(0)
-        while True:
-            pass
-    else:
-        motor_drive.run(-MOT_DEG_S)
+    ev3.screen.print(right_distance)
+    # if (total_len > 2200):
+    #     motor_drive.run(0)
+    #     while True:
+    #         pass
+    # else:
+    motor_drive.run(-MOT_DEG_S)
 
     # straight_distance = ult_sen.distance()
 
