@@ -41,7 +41,7 @@ MOT2CAR_DEG_S_RATIO = CAR_DEG_S/MOT_DEG_S
 PS_SIZE = 600
 PS_SIZE_OFFSET = 50
 REF_CAR_DIST = 500
-REF_CAR_WIDTH = 200
+REF_CAR_WIDTH = 300
 
 vel_mot_average = 0
 vel_mot_counter = 0
@@ -52,8 +52,18 @@ isObtacle = False
 isObtacle_old = False
 
 # auto parking
-def ADAS(back_right_sens_dist):
-    print("ADASS here")
+def ADAS():
+    
+    # ev3.screen.clear()
+    back_right_sens_dist = ult_sen.distance()
+    for i in range(0,100):
+        back_right_sens_dist = back_right_sens_dist + ult_sen.distance()
+    back_right_sens_dist = back_right_sens_dist/100
+    
+    # ev3.screen.print(back_right_sens_dist)
+    # while True:
+    #     pass
+    # print("ADASS here")
     # step 1:
     motor_ultraSens.run_target(1053,-90) #look behind
     # back_right_sens_dist = ult_sen.distance()
@@ -61,20 +71,16 @@ def ADAS(back_right_sens_dist):
     right_angel = 230
     stop_angel = -60
     
-    if (back_right_sens_dist <= 240):
+    if (back_right_sens_dist <= 170):
         ev3.speaker.say("one")
         right_angel = 230
         stop_angel = -35
-    elif (back_right_sens_dist <= 360):
+    elif (back_right_sens_dist <= 270):
         ev3.speaker.say("two")
         right_angel = 190
         stop_angel = -53
-    elif (back_right_sens_dist >2500):
-        ev3.speaker.say("three")
-        right_angel = 230
-        stop_angel = -30
     else:
-        ev3.speaker.say("four")
+        ev3.speaker.say("three")
         right_angel = 180
         stop_angel = -60
     
@@ -249,9 +255,10 @@ while True:
         ev3.screen.print(parking_size)
         ev3.screen.print(delta_time_ms)
         ev3.screen.print(vel_mot_average)
+        wait(20)
         motor_drive.run(0)
         while(True):
-            ADAS(right_distance)
+            ADAS()
             
     else:
         pass
