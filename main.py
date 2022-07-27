@@ -19,29 +19,21 @@ ult_sen = UltrasonicSensor(Port.S4)
 gyro_Sen =  GyroSensor(Port.S3)
 timer = StopWatch()
 
+BACKWARD = 0
+FORWARD = 1
 
-old_distance = 0
-val_distance = 0
-flg_join_parking = False
-flg_distance = False
-count_distance = 0
-refer_car_size = 0
-flg_timer = False
+WHEEL_DIA = 55 #mm driver wheel diameter
+CAR_LEN = 160 #mm user car len
 
-WHEEL_DIA = 55 #mm
-CAR_LEN = 160 #mm
-
-# deg/s ~ mm/s
-# vel = deg/s/360*pi*D
-MOT_DEG_S = 1053/1 #deg/s
-ROTA2LINEAR = math.pi*WHEEL_DIA/360 #deg/s to mm/s
-CAR_DEG_S = 360/1060*1000 #deg/s
+MOT_DEG_S = 1053/1 #deg/s: driver motor rotation speed
+ROTA2LINEAR = math.pi*WHEEL_DIA/360 #deg/s to mm/s : convert rotation to linear speed
+CAR_DEG_S = 360/1060*1000 #deg/s : wheel rotation speed
 MOT2CAR_DEG_S_RATIO = CAR_DEG_S/MOT_DEG_S
 
-PS_SIZE = 600
-PS_SIZE_OFFSET = 50
-REF_CAR_DIST = 500
-REF_CAR_WIDTH = 300
+PS_SIZE = 600 # mm: parking space size 
+PS_SIZE_OFFSET = 50 #mm: ofset to calib due to acutal environment
+REF_CAR_DIST = 500 #mm: distance from user car to reference car 
+REF_CAR_WIDTH = 300 #mm: reference car width
 
 vel_mot_average = 0
 vel_mot_counter = 0
@@ -51,28 +43,88 @@ is1StDetection = True
 isObtacle = False
 isObtacle_old = False
 ev3.light.off()
+
+# Maneuver Emergency Brake
+def MEB(direct):
+    
+    if direct == BACKWARD:
+        # break the car if any obstacle in drive way.
+        ostacle_check_dist = ult_sen.distance()
+        if ostacle_check_dist < 230:
+            motor_drive.run(0)
+            ev3.screen.print(ostacle_check_dist)
+            while(not Button.DOWN in ev3.buttons.pressed()):
+                pass
+    if direct == FORWARD:
+        straight_distance = ult_sen.distance()
+        if straight_distance < 250:
+            timer.pause()
+            while(not Button.DOWN in ev3.buttons.pressed()):
+                timer.pause()
+                motor_drive.run(0)
+                pass
+            timer.resume()
+
+def Adjust_Pos():
+    
+    motor_ultraSens.run_target(1053,-90) #look behind
+    wait(50)
+
+    behind_dist = ult_sen.distance()
+    for i in range(0,10):
+        behind_dist = behind_dist + ult_sen.distance()
+    behind_dist = behind_dist/10
+    
+    motor_ultraSens.run_target(1053,90)
+    wait(50)
+    
+    front_dist = ult_sen.distance()
+    for i in range(0,10):
+        behind_dist = behind_dist + ult_sen.distance()
+    behind_dist = behind_dist/10
+    
+    center_dist = (front_dist + behind_dist)/2
+    delta_dist = front_dist - behind_dist
+    
+    if (delta_dist >= 0):
+        while True:
+            motor_drive.dc(-30) # run forward
+            temp_dist = ult_sen.distance()
+            if(temp_dist <= center_dist):
+                motor_drive.dc(0)
+                break
+    else:
+        motor_ultraSens.run_target(1053,-90) #look back
+        wait(10)
+        while True:
+            motor_drive.dc(30) # run backward
+            temp_dist = ult_sen.distance()
+            if(temp_dist <= center_dist):
+                motor_drive.dc(0)
+                break
+
 # auto parking
-def ADAS():
+def APA():
     
+    # step 1: find suitable position
+    motor_ultraSens.run_target(1053,0) #look right side
     wait(80)
-    
     motor_drive.run(0)
-        
-    back_right_sens_dist = ult_sen.distance()
+    drvCar2RefCar_dist = ult_sen.distance()
     for i in range(0,1000):
-        back_right_sens_dist = back_right_sens_dist + ult_sen.distance()
-    back_right_sens_dist = back_right_sens_dist/1000
+        drvCar2RefCar_dist = drvCar2RefCar_dist + ult_sen.distance()
+    drvCar2RefCar_dist = drvCar2RefCar_dist/1000
     
     motor_ultraSens.run_target(1053,-90) #look behind
     
     right_angel = 230
     stop_angel = -60
     
-    if (back_right_sens_dist <= 170):
+    if (drvCar2RefCar_dist <= 170):
         ev3.light.on(Color.RED)
         right_angel = 230
         stop_angel = -35
-    elif (back_right_sens_dist <= 270):
+    elif (drvCar2RefCar_dist <= 270):
         ev3.light.on(Color.YELLOW)
         right_angel = 190
         stop_angel = -53
@@ -80,119 +132,42 @@ def ADAS():
         ev3.light.on(Color.GREEN)
         right_angel = 180
         stop_angel = -65
-    
-    motor_steer.run_target(500, right_angel) # turn steer wheel to the right
-    
+
+    motor_steer.run_target(500, right_angel) # turn steer wheel to the right side
+
     while True:
-        motor_drive.dc(70) #chay lui
+        motor_drive.dc(70) # move backward
         if gyro_Sen.angle() < stop_angel :
             ev3.screen.clear()
             ev3.screen.print(gyro_Sen.angle());
             break
-        
-        # kiem tra vat can khi dang di chuyen
-        ostacle_check_dist = ult_sen.distance()
-        if ostacle_check_dist < 230:
-            motor_drive.run(0)
-            ev3.screen.print(ostacle_check_dist)
-            while(not Button.DOWN in ev3.buttons.pressed()):
-                pass
+        # stop if any osbtacle in drive way
+        MEB(BACKWARD)
 
-    # step 2: danh lai vao ps
-    motor_steer.run_target(500,-230) #danh lai trai het co
-    
-    # while gyro_Sen.angle() < 0 : 
-    #     motor_drive.dc(68) #chay lui
-        
-    #     ostacle_check_dist = ult_sen.distance()
-    #     if ostacle_check_dist < 200:
-    #         motor_drive.run(0)
-    #         while(not Button.CENTER in ev3.buttons.pressed()):
-    #             pass
-    
+    # step 2: move to PS
+    motor_steer.run_target(500,-230) #turn steer wheel to the left side
     while True:
         motor_drive.dc(68) #chay lui
         if gyro_Sen.angle() > 0 : 
             break
-        
-        # kiem tra vat can khi dang di chuyen
-        ostacle_check_dist = ult_sen.distance()
-        if ostacle_check_dist < 230:
-            motor_drive.run(0)
-            ev3.screen.print(ostacle_check_dist)
-            while(not Button.DOWN in ev3.buttons.pressed()):
-                pass
+        # stop if any osbtacle in drive way
+        MEB(BACKWARD)
 
     motor_drive.dc(0)
     motor_steer.run_target(500, 0) #danh lai thang
-    
+
     # step 3: hieu chinh khoang cach
-    
-    # wait(50)
-    # behind_dist = ult_sen.distance()
-    
-    # # behind_dist = 0
-    # # for i in range(0,10):
-    # #     behind_dist = behind_dist + ult_sen.distance()
-    # # behind_dist = behind_dist/10
-    
-    # motor_ultraSens.run_target(1053,90)
-    # wait(50)
-    
-    # front_dist = ult_sen.distance()
-    
-    # # front_dist = 0
-    # # for i in range(0,10):
-    # #     behind_dist = behind_dist + ult_sen.distance()
-    # # behind_dist = behind_dist/10
-    
-    # center_dist = (front_dist + behind_dist)/2
-    # delta_dist = front_dist - behind_dist
-    
-    # if (delta_dist >= 0):
-    #     while True:
-    #         motor_drive.dc(-30) #chay toi
-    #         temp_dist = ult_sen.distance()
-    #         if(temp_dist <= center_dist):
-    #             motor_drive.dc(0)
-    #             break
-    # else:
-    #     motor_ultraSens.run_target(1053,-90)
-    #     wait(10)
-    #     while True:
-    #         motor_drive.dc(30) #chay lui
-    #         temp_dist = ult_sen.distance()
-    #         if(temp_dist <= center_dist):
-    #             motor_drive.dc(0)
-    #             break
-            
-            
+    # implement in advance.
+
     motor_ultraSens.run_target(1053,0)
     while(not Button.CENTER in ev3.buttons.pressed()):
         pass
     
-    
-    # motor_ultraSens.run_target(500,-90)
-    # front_dist = UltrasonicSensor.distance()
-    # motor_ultraSens.run_target(500,90)
-    # back_dist = UltrasonicSensor.distance()
-    
-    # if (front_dist < 600 and back_dist <600):
-    #     if font_dist >= back_dist:
-    #         delta_dist = front_dist - back_dist
-    #         # chay toi
-    #         time = timer.time()
-    #         time_calc = delta_dist/vel
-    #         while (timer.time() - time <= (time_calc*S2MS_CVT)): 
-    #             motor_drive.dc(50) #chay lui vao ps
-    #         motor_drive.dc(0)
-    
-    # while(not Button.CENTER in ev3.buttons.pressed()):
-    #     if(Button.CENTER in ev3.buttons.pressed()):
-    #         gyro_Sen.reset_angle(0)
-    #     pass
+    # done
 
+""" MAIN FUNCTION """
 
+# press CENTER to Go
 while(not Button.CENTER in ev3.buttons.pressed()):
     motor_drive.run(0)
     pass
@@ -214,77 +189,46 @@ delta_time_ms = timer.time() - curr_time
 
 parking_size = -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(delta_time_ms/1000) #mm
 
-total_len_time = 0
-total_len = 0
-total_len_time = timer.time()
+travel_dist_time = 0
+travel_dist = 0
+travel_dist_time = timer.time()
 
 sensor_angel = 95
 while True:
 
 # finding PS ------------------------------------------------------- 
-    motor_steer.hold()
+    motor_steer.hold() # hold steer wheel when moving straight
     
-    # doc khoang cach truoc
+    # calculate front side distance
     sensor_angel = 95
     motor_ultraSens.run_target(1053,sensor_angel)
-    straight_distance = ult_sen.distance()
+    # CAR stop if obstacle appear
+    MEB(FORWARD)
     
-    if straight_distance < 250:
-        timer.pause()
-        while(not Button.DOWN in ev3.buttons.pressed()):
-            timer.pause()
-            motor_drive.run(0)
-            pass
-        timer.resume()
-    
+    # calculate right side distance
     sensor_angel = 0
-    # doc khoang cach ben phai
     motor_ultraSens.run_target(1053,sensor_angel)
-    
     if sensor_angel == 0:
-        # temp = ult_sen.distance()
-        # if temp < 2500 and temp > 10:
-        #     peek = peek + 1
-        #     peek = peek % dist_filter_size
-            
-        #     dist_filter[peek] = temp
-        #     # xu ly tin hieu cam bien
-        #     for i in dist_filter:
-        #         raw_dist += i 
-        #     raw_dist = int(raw_dist/dist_filter_size)
-        #     right_distance = raw_dist
         right_distance = ult_sen.distance()
 
-    # doc toc do dong co
+    # calculate drv car speed
     vel_mot_counter = vel_mot_counter + 1
     vel_mot_average = vel_mot_average + motor_drive.speed()
 
-    # run car
-    # total_len_time_diff = timer.time() - total_len_time 
-    # if (total_len_time_diff >= 1):
-    #     total_len = total_len + -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(total_len_time_diff/1000)
-    #     total_len_time = timer.time()
+    # run car and calculate travel distance
+    travel_dist_time_diff = timer.time() - travel_dist_time 
+    if (travel_dist_time_diff >= 1):
+        travel_dist = travel_dist + -1*motor_drive.speed()*MOT2CAR_DEG_S_RATIO*(travel_dist_time_diff/1000)
+        travel_dist_time = timer.time()
     
-    ev3.screen.print(right_distance)
-    # if (total_len > 2200):
-    #     motor_drive.run(0)
-    #     while True:
-    #         pass
-    # else:
-    motor_drive.run(-MOT_DEG_S)
+    if (travel_dist > 2200):
+        motor_drive.run(0)
+        while True:
+            pass
+    else:
+        motor_drive.run(-MOT_DEG_S)
 
-    # straight_distance = ult_sen.distance()
-
-    # # CAR stop if obstacle appear
-    # if(straight_distance < 150):
-    #     while(straight_distance < 200):
-    #         motor_drive.run(0)
-
-    # SENSOR turn right
-    # motor_ultraSens.run_target(1053,-90)
-    # ev3.screen.print(right_distance)
-    
-    # xu ly vat can
+    # check ref car
     if(right_distance < REF_CAR_DIST):
         if is1StDetection == True:
             REF_CAR_DIST = right_distance + REF_CAR_WIDTH 
@@ -294,7 +238,7 @@ while True:
     else:
         isObtacle = False
 
-    # kiem tra valid PS
+    # check valid PS
     if isObtacle_old != isObtacle:
         if(isObtacle == False and isObtacle_old == True):
             curr_time = timer.time()
@@ -307,16 +251,16 @@ while True:
         else:
             pass
         isObtacle_old = isObtacle
-        
+
     if (parking_size >= PS_SIZE + PS_SIZE_OFFSET):
-        # valid PS, drive Car to PS
-        # motor_drive.run(0)
-        ev3.speaker.beep(frequency=200, duration=100)
+        # we are here if PS is valid, drive Car to the PS
+        ev3.speaker.beep(frequency=600, duration=100)
+        ev3.speaker.beep(frequency=600, duration=100)
         ev3.screen.print(parking_size)
         ev3.screen.print(delta_time_ms)
         ev3.screen.print(vel_mot_average)
         while(True):
-            ADAS()
-            
+            APA()
     else:
+        # still find the PS, or stop when travel exceed length of map
         pass
