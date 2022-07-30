@@ -13,8 +13,8 @@ ev3 = EV3Brick()
 
 # Khoi tao ngoai vi
 motor_ultraSens = Motor(Port.D)
-motor_drive = Motor(Port.A)
-motor_steer = Motor(Port.B)
+motor_drive = Motor(Port.B)
+motor_steer = Motor(Port.C)
 ult_sen = UltrasonicSensor(Port.S4)
 gyro_Sen =  GyroSensor(Port.S3)
 timer = StopWatch()
